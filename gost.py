@@ -30,13 +30,25 @@ class GostCrypt(object):
         assert self._bit_length(part) <= 32
         temp = part ^ key  # складываем по модулю
         output = 0
+        s = [
+            (temp & 0xF0000000) >> 28,
+            (temp & 0x0F000000) >> 24,
+            (temp & 0x00F00000) >> 20,
+            (temp & 0x000F0000) >> 16,
+            (temp & 0x0000F000) >> 12,
+            (temp & 0x00000F00) >> 8,
+            (temp & 0x000000F0) >> 4,
+            (temp & 0x0000000F)
+        ]
         # разбиваем по 4бита
         # в рез-те sbox[i][j] где i-номер шага, j-значение 4битного куска i шага
         # выходы всех восьми S-блоков объединяются в 32-битное слово
         for i in range(8):
-            output |= ((self.sbox[i][(temp >> (4 * i)) & 0b1111]) << (4 * i))
+            output <<= 4
+            output += self.sbox[i][s[i] & 0b1111]
             # всё слово циклически сдвигается влево (к старшим разрядам) на 11 битов.
-        return ((output >> 11) | (output << (32 - 11))) & 0xFFFFFFFF
+        output = ((output << 11) | (output >> (32 - 11))) & 0xFFFFFFFF
+        return output
 
     def _decrypt_round(self, left_part, right_part, round_key):
         return left_part, right_part ^ self._f(left_part, round_key)
@@ -60,7 +72,7 @@ class GostCrypt(object):
             # Ключи K25…K32 являются ключами K1…K8, идущими в обратном порядке.
         for i in range(8):
             left_part, right_part = _encrypt_round(left_part, right_part, self._subkeys[7 - i])
-        return (left_part << 32) | right_part  # сливаем половинки вместе
+        return ((right_part << 32) | left_part) & (2 ** 64 - 1)  # сливаем половинки вместе
 
     def decrypt(self, crypted_msg):
         """Дешифрование криптованого сообщения
