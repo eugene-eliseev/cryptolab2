@@ -31,16 +31,18 @@ def to64(num):
 
 def hack(data):
     num, start, end, print_freq = data
-    zero_data = 2 ** 32 - 1
     zero_cryptor = get_cryptor(0)
     zero_enc = zero_cryptor.encrypt(0)
-    part2 = to64(zero_enc)[32:]
+    # part2 = to64(zero_enc)[32:]
+    part2 = zero_enc & 0xFFFFFFFF  # оптимизация
     time_start = time.time()
     print("# {} # Start work {} - {}".format(num, start, end))
     for i in range(start, end):
         if i % print_freq == 0:
-            print("# {} # Done {} in {} s".format(num, i, int(time.time()-time_start)))
-        part1 = to64(zero_cryptor.encrypt(zero_data & i))[:32]
+            print("# {} # Done {} in {} s".format(num, i, int(time.time() - time_start)))
+        # part1 = to64(zero_cryptor.encrypt(i << 32))[:32]
+        # if part1 == part2:
+        part1 = zero_cryptor.encrypt(i << 32) >> 32  # оптимизация
         if part1 == part2:
             print("# {} #".format(num), i, part1, part2)
             with open("res.txt", "a+") as f:
@@ -49,14 +51,15 @@ def hack(data):
 
 
 if __name__ == "__main__":
+    cluster_id = 0
+    cluster_num = 2
     threads = 16
-    freq = 100000
+    freq = 1000000
     end = 2 ** 32
     one_t_step = end // threads
     data = []
     p = multiprocessing.Pool(processes=8)
-    for i in range(threads - 1):
-        data.append((i, i * one_t_step, (i + 1) * one_t_step, freq))
-    data.append((threads - 1, (threads - 1) * one_t_step, end, freq))
+    for i in range(threads):
+        if i % cluster_num == cluster_id:
+            data.append((i, i * one_t_step, (i + 1) * one_t_step, freq))
     p.map(hack, data)
-
