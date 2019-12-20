@@ -1,4 +1,4 @@
-import threading
+import multiprocessing
 import time
 from gost import GostCrypt
 
@@ -29,7 +29,8 @@ def to64(num):
     return r
 
 
-def hack(num, start, end, print_freq):
+def hack(data):
+    num, start, end, print_freq = data
     zero_data = 2 ** 32 - 1
     zero_cryptor = get_cryptor(0)
     zero_enc = zero_cryptor.encrypt(0)
@@ -47,29 +48,15 @@ def hack(num, start, end, print_freq):
                 f.flush()
 
 
-class HackThread(threading.Thread):
-    def __init__(self, i, start, end, pfq):
-        threading.Thread.__init__(self)
-        self.start_ = start
-        self.num_ = i
-        self.end_ = end
-        self.pfq = pfq
-
-    def run(self):
-        hack(self.num_, self.start_, self.end_, self.pfq)
-
-
 if __name__ == "__main__":
     threads = 16
     freq = 100000
     end = 2 ** 32
     one_t_step = end // threads
+    data = []
+    p = multiprocessing.Pool(processes=8)
     for i in range(threads - 1):
-        t = HackThread(i, i * one_t_step, (i + 1) * one_t_step, freq)
-        t.setDaemon(True)
-        t.start()
-    t = HackThread(threads - 1, (threads - 1) * one_t_step, end, freq)
-    t.setDaemon(True)
-    t.start()
-    while True:
-        time.sleep(5)
+        data.append((i, i * one_t_step, (i + 1) * one_t_step, freq))
+    data.append((threads - 1, (threads - 1) * one_t_step, end, freq))
+    p.map(hack, data)
+
